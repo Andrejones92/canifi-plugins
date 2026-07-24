@@ -57,55 +57,32 @@ default to an example you've seen elsewhere.
 
 ### Resolving this plugin's own files
 
-`$CLAUDE_PLUGIN_ROOT` is **not** exported into the Bash tool, so never rely on it alone.
-Resolve the plugin root with this block and use `$PLUGIN_ROOT` from then on:
+**Do not use shell commands for this.** `$CLAUDE_PLUGIN_ROOT` is not exported into the
+Bash tool, and on native Windows without Git for Windows there is no Bash tool at all —
+Claude Code uses PowerShell there. Use the **Glob tool**, which behaves identically on
+macOS, Linux, WSL and Windows.
 
-```bash
-CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
-[ -n "$PLUGIN_ROOT" ] && [ -d "$PLUGIN_ROOT" ] || \
-  PLUGIN_ROOT="$(ls -d "$CFG"/plugins/cache/canifi/canifi/*/ 2>/dev/null | sort -V | tail -1)"
-[ -n "$PLUGIN_ROOT" ] && [ -d "$PLUGIN_ROOT" ] || \
-  PLUGIN_ROOT="$CFG/plugins/marketplaces/canifi/plugins/canifi"
-PLUGIN_ROOT="${PLUGIN_ROOT%/}"
-echo "$PLUGIN_ROOT"
+Glob for the marker file that only ever exists inside this plugin:
+
+```
+Glob  pattern: **/plugins/**/canifi/**/skills/council/council-cost-lib.js
 ```
 
-Order matters: the env var if it is ever populated, then the newest installed version
-(`sort -V`, because `0.10.0` sorts below `0.9.0` lexically), then the marketplace clone as
-a last resort. If the final `echo` prints nothing or the directory has no `skills/`
-subdirectory, stop and tell the user the plugin looks broken — do not guess a path.
+If that returns nothing, widen to `**/skills/council/council-cost-lib.js`.
 
+Take the match with the **highest version segment** in its path (paths look like
+`.../plugins/cache/canifi/canifi/0.3.0/skills/...`; compare numerically, so `0.10.0`
+beats `0.9.0` — never compare these as plain strings). `PLUGIN_ROOT` is everything
+before `/skills/`.
 
+Use `PLUGIN_ROOT` for every bundled file from then on, and always join paths with `/` —
+Claude Code's file tools accept forward slashes on Windows.
 
-1. Confirm the reference file exists:
-   `ls $PLUGIN_ROOT/skills/canifilifesetup/reference/`. If missing, tell the
-   user plainly and stop — there is no other legitimate source for the
-   mechanics authority.
-2. Check for prior runs: any existing skill with a `generated-by:
-   canifilifesetup` frontmatter line? If found, ask update/regenerate vs.
-   abort; back up each file to `<file>.bak.<epoch>` before overwriting,
-   never silently.
-3. **Collision check beyond this wizard's own prior runs**: before Phase 6
-   writes anything, check whether the proposed skill names already exist
-   as UNRELATED skills (no `generated-by` marker) — this has happened for
-   real (a machine can already have its own hand-built `dashboard` or
-   `brain-retrieval` skill unrelated to this wizard). If so, do not
-   overwrite silently; either propose a distinct name-prefix for the
-   generated skills or get explicit confirmation to replace the existing
-   one, backed up first.
-4. Confirm `git` is installed. `gh` only matters if the interview lands on
-   GitHub as the store (Phase 4) — note if missing, don't block yet.
-   `osascript`/Messages.app only matter if iMessage is chosen as the
-   delivery channel (Phase 2/4) — confirm macOS before generating that
-   path; never generate an iMessage step for a non-Mac environment.
-5. **Detect an existing director.** Check
-   `ls ~/.claude/skills/director/SKILL.md`. If present, don't ask about it
-   yet — just note it for Phase 3, and read
-   `~/.claude/skills/director/scripts/spawn-issue-fixer.sh` /
-   `teardown-issue-fixer.sh` (and `spawn-team.sh`/`teardown-team.sh`) now
-   so their real, already-personalized idioms are on hand when Phase 3's
-   question comes up.
+If Glob returns no match at all, stop and tell the user the plugin install looks
+incomplete and to try `/plugin install canifi` again. Never guess a path, and never
+fall back to a hardcoded `~/.claude/...`, which is wrong whenever `CLAUDE_CONFIG_DIR`
+is set.
+
 
 ## Phase 1 — Open-ended discovery (always first, always free-form)
 

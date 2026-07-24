@@ -78,50 +78,65 @@ offers to install them **once**, then never asks again.
 
 **Do this before Step 1, and only if the marker file is absent.**
 
+Everything here uses Claude Code's own file tools — Read, Write, Glob — and never
+shell commands. On native Windows without Git for Windows there is no Bash tool at
+all, so a shell-based install would fail outright for those users.
+
+Two paths you need, both derived without the shell:
+
+- `PLUGIN_ROOT` — from the resolver above.
+- `CONFIG_DIR` — the directory holding the user's `settings.json`. Glob for
+  `**/.claude/settings.json`, or read the `CLAUDE_CONFIG_DIR` env var if the user
+  mentions one. Never hardcode `~/.claude`; it is wrong whenever `CLAUDE_CONFIG_DIR`
+  is set.
+
 ### Resolving this plugin's own files
 
-`$CLAUDE_PLUGIN_ROOT` is **not** exported into the Bash tool, so never rely on it alone.
-Resolve the plugin root with this block and use `$PLUGIN_ROOT` from then on:
+**Do not use shell commands for this.** `$CLAUDE_PLUGIN_ROOT` is not exported into the
+Bash tool, and on native Windows without Git for Windows there is no Bash tool at all —
+Claude Code uses PowerShell there. Use the **Glob tool**, which behaves identically on
+macOS, Linux, WSL and Windows.
 
-```bash
-CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
-[ -n "$PLUGIN_ROOT" ] && [ -d "$PLUGIN_ROOT" ] || \
-  PLUGIN_ROOT="$(ls -d "$CFG"/plugins/cache/canifi/canifi/*/ 2>/dev/null | sort -V | tail -1)"
-[ -n "$PLUGIN_ROOT" ] && [ -d "$PLUGIN_ROOT" ] || \
-  PLUGIN_ROOT="$CFG/plugins/marketplaces/canifi/plugins/canifi"
-PLUGIN_ROOT="${PLUGIN_ROOT%/}"
-echo "$PLUGIN_ROOT"
+Glob for the marker file that only ever exists inside this plugin:
+
+```
+Glob  pattern: **/plugins/**/canifi/**/skills/council/council-cost-lib.js
 ```
 
-Order matters: the env var if it is ever populated, then the newest installed version
-(`sort -V`, because `0.10.0` sorts below `0.9.0` lexically), then the marketplace clone as
-a last resort. If the final `echo` prints nothing or the directory has no `skills/`
-subdirectory, stop and tell the user the plugin looks broken — do not guess a path.
+If that returns nothing, widen to `**/skills/council/council-cost-lib.js`.
+
+Take the match with the **highest version segment** in its path (paths look like
+`.../plugins/cache/canifi/canifi/0.3.0/skills/...`; compare numerically, so `0.10.0`
+beats `0.9.0` — never compare these as plain strings). `PLUGIN_ROOT` is everything
+before `/skills/`.
+
+Use `PLUGIN_ROOT` for every bundled file from then on, and always join paths with `/` —
+Claude Code's file tools accept forward slashes on Windows.
+
+If Glob returns no match at all, stop and tell the user the plugin install looks
+incomplete and to try `/plugin install canifi` again. Never guess a path, and never
+fall back to a hardcoded `~/.claude/...`, which is wrong whenever `CLAUDE_CONFIG_DIR`
+is set.
 
 ### 0.1 — Check the marker
 
-```
-test -f ~/.claude/canifi/statusline-choice.json && echo SKIP || echo OFFER
-```
+Glob for `**/canifi/statusline-choice.json` under `CONFIG_DIR`.
 
-If `SKIP`, say nothing about status lines and go straight to Step 1. Do not
-mention this step, do not re-offer, do not print the instructions. The
-decision has already been made.
+If it exists, say nothing about status lines and go straight to Step 1. Do not
+mention this step, do not re-offer, do not print the instructions. The decision
+has already been made.
 
-If `OFFER`, continue.
+Otherwise continue.
 
 ### 0.2 — Read the user's current status line
 
-```
-cat ~/.claude/settings.json 2>/dev/null | grep -A4 '"statusLine"' || echo NONE
-```
-
-Keep the result. You need it for the conflict branch in 0.4.
+Read `CONFIG_DIR/settings.json`. If the file does not exist, or has no `statusLine`
+key, treat it as "no status line configured". Keep whatever you find — you need it
+for the conflict branch in 0.4.
 
 ### 0.3 — Ask, with `AskUserQuestion`
 
-One call, two questions:
+One call, two questions.
 
 **Question 1 — "Install the Council cost status lines?"**
 
@@ -132,22 +147,22 @@ One call, two questions:
 | Not now | Install nothing. **You will be asked again** on your next council run. |
 | Never ask again | Install nothing, and never raise this again. |
 
-Say plainly what each writes: the scripts are copied to `~/.claude/scripts/`,
-and `statusLine` in `~/.claude/settings.json` is set to run one of them.
+Say plainly what each writes: the scripts are copied into `CONFIG_DIR/scripts/`,
+and `statusLine` in `CONFIG_DIR/settings.json` is set to run one of them.
 
-**Question 2 — only if 0.2 returned an existing `statusLine`.**
+**Question 2 — only if 0.2 found an existing `statusLine`.**
 
 Show them the command it currently runs, verbatim, and ask:
 
 | Option | Meaning |
 | --- | --- |
 | Replace it (back up first) | Copy `settings.json` to `settings.json.bak`, then overwrite `statusLine` |
-| Keep mine, just copy the scripts | Files land in `~/.claude/scripts/`; print the one line to paste themselves |
+| Keep mine, just copy the scripts | Scripts land in `CONFIG_DIR/scripts/`; print the one line to paste themselves |
 | Cancel | Nothing is written. You will be asked again next run. |
 
 **Never overwrite an existing `statusLine` without an explicit answer to this
-question.** A status line is something people tune; silently replacing it is
-not acceptable.
+question.** A status line is something people tune; silently replacing it is not
+acceptable.
 
 ### 0.4 — Act on the answer
 
@@ -155,42 +170,52 @@ Branch on the answer:
 
 - **Never ask again** — write the marker (0.5) with `"choice": "declined"`, then go to Step 1.
 - **Not now**, or **Cancel** on the conflict question — write **no marker**. Go straight to
-  Step 1. The offer returns on the next council run, because the user has not made a durable
-  decision yet. Do not nag about it, do not explain it — just move on.
+  Step 1. The offer returns next run, because the user has not made a durable decision yet.
+  Do not nag, do not explain — just move on.
 - Any install choice — do the install below, then write the marker.
 
-Otherwise:
+To install, for each file needed: **Read it from `PLUGIN_ROOT` and Write it to
+`CONFIG_DIR/scripts/`.** Write creates parent directories, so no `mkdir` is required.
+The scripts locate each other by `__dirname`, so they must all land in the same
+directory:
 
-1. `mkdir -p ~/.claude/scripts`
-2. Copy the lib and the scripts the choice needs. They resolve each other by
-   `__dirname`, so they must all land in the same directory:
+- `skills/council/council-cost-lib.js` — always required
+- `skills/council/statusline/statusline-council-cost.js` — always
+- `skills/council/statusline/statusline-main-cost.js` — full stack only
+- `skills/council/statusline/statusline-agents-cost.js` — full stack only
+- `skills/council/statusline/statusline-combined.js` — full stack only
+
+Then, unless they chose "keep mine":
+
+1. If replacing an existing status line, Read `settings.json` and Write it verbatim to
+   `settings.json.bak` first. Tell the user the backup path.
+2. Read `settings.json` (or start from `{}` if absent), set **only** the `statusLine`
+   key, and Write the whole object back. **Preserve every other setting** — parse the
+   JSON properly, never string-splice it.
+
+   ```json
+   "statusLine": {
+     "type": "command",
+     "command": "node <CONFIG_DIR>/scripts/statusline-combined.js",
+     "padding": 1,
+     "refreshInterval": 2
+   }
    ```
-   cp "$PLUGIN_ROOT/skills/council/council-cost-lib.js" ~/.claude/scripts/
-   cp "$PLUGIN_ROOT/skills/council/statusline/"*.js     ~/.claude/scripts/
-   ```
-3. If replacing: `cp ~/.claude/settings.json ~/.claude/settings.json.bak` first,
-   and tell the user the backup path.
-4. Set `statusLine` in `~/.claude/settings.json`. Read the file, modify the one
-   key, write it back — **preserve every other setting**. Use
-   `node ~/.claude/scripts/statusline-council-cost.js` or
-   `node ~/.claude/scripts/statusline-combined.js` per the choice, with
-   `"type": "command"`, `"padding": 1`, `"refreshInterval": 2`.
-5. If they chose "keep mine", skip 3–4 and print the exact line instead.
-6. Tell them it takes effect on the next session, or immediately after
-   `/config` reload.
+
+   Use `statusline-council-cost.js` instead for the council-only choice. Write
+   `CONFIG_DIR` as a real absolute path with forward slashes — those work on Windows too.
+3. If they chose "keep mine", skip 1–2 and print the exact line for them to paste.
+4. Tell them it takes effect on the next session.
+
+**Node is required** to run the status lines. If the user has no Node, say so plainly
+rather than installing scripts that cannot run.
 
 ### 0.5 — Write the marker
 
 **Only on a durable decision** — an install, or an explicit "never ask again". A "not now"
 or a cancel writes nothing, so the user is asked again next time.
 
-When you do write it:
-
-```
-mkdir -p ~/.claude/canifi
-```
-
-Write `~/.claude/canifi/statusline-choice.json`:
+When you do write it, Write `CONFIG_DIR/canifi/statusline-choice.json`:
 
 ```json
 {

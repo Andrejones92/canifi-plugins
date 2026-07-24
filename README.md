@@ -102,11 +102,29 @@ Generates a personal research system whose core is a [Google Open Knowledge Form
 ## Requirements
 
 - Claude Code with plugin support
-- `/canifi:council` needs the **Workflow tool**; the cost readouts need **Node**
-- External scanners (TruffleHog, Semgrep, OSV-Scanner) are optional — each is detected
-  before use, and a missing one is recorded as "scan not performed" rather than
-  silently passed
-- The setup skills generate tmux-based orchestration, so they assume tmux for the systems they produce
+- **Node** — for the cost readouts (`/canifi:council` still runs without it; it records
+  "cost summary unavailable" rather than faking numbers)
+- External scanners (TruffleHog, Semgrep, OSV-Scanner) are optional. Each is detected
+  before use, and a missing one is recorded as "scan not performed" rather than silently
+  passed.
+
+### Platform support
+
+| | macOS · Linux · WSL | Native Windows |
+| --- | --- | --- |
+| `/canifi:council` | ✅ | ✅ |
+| `/canifi:canifilifesetup` | ✅ | ✅ |
+| `/canifi:canifidevsetup` | ✅ | ❌ — see below |
+| Cost status lines | ✅ | ✅ (needs Node) |
+
+`canifidevsetup` generates a **tmux**-based orchestration system, and tmux has no native
+Windows build. On Windows, run Claude Code inside **WSL 2** and generate the system there,
+with your repos on the WSL filesystem. The skill checks your platform before the interview
+and stops rather than producing something that cannot run.
+
+Nothing in this plugin shells out to resolve its own files: path discovery uses Glob and
+file operations use Read/Write, so it behaves the same whether Claude Code gives you Bash,
+Git Bash, or PowerShell.
 
 ## Development
 

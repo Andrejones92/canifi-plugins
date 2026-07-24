@@ -87,45 +87,59 @@ default and your recommendation is always this):**
 
 ## Phase 0 — Preflight
 
+### Platform check — do this first
+
+The system this skill generates is built on **tmux**: the director spawns each team as
+tmux sessions and tears them down afterwards. That is not portable everywhere, so
+establish the user's platform before spending an interview on it.
+
+Ask the user directly if you are unsure. Do not shell out to detect it — on native
+Windows without Git for Windows there is no Bash tool at all.
+
+| Platform | Verdict |
+| --- | --- |
+| macOS, Linux | Supported. Continue. |
+| Windows + WSL | Supported — but everything generated must live **inside WSL**, and the repos it drives must be on the WSL filesystem. Say so before continuing. |
+| Native Windows (PowerShell or Git Bash) | **Not supported.** tmux does not run there. |
+
+If they are on native Windows, stop before the interview and tell them plainly:
+this skill generates a tmux orchestration system, tmux has no native Windows build,
+and the practical route is to run Claude Code inside WSL 2 and re-run the skill there.
+Do not generate a half-working system, and do not attempt a PowerShell translation —
+the coordination protocol depends on tmux session semantics that have no equivalent.
+
+`/canifi:council` and `/canifi:canifilifesetup` have no such constraint and work fine
+on native Windows.
+
+
 ### Resolving this plugin's own files
 
-`$CLAUDE_PLUGIN_ROOT` is **not** exported into the Bash tool, so never rely on it alone.
-Resolve the plugin root with this block and use `$PLUGIN_ROOT` from then on:
+**Do not use shell commands for this.** `$CLAUDE_PLUGIN_ROOT` is not exported into the
+Bash tool, and on native Windows without Git for Windows there is no Bash tool at all —
+Claude Code uses PowerShell there. Use the **Glob tool**, which behaves identically on
+macOS, Linux, WSL and Windows.
 
-```bash
-CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
-[ -n "$PLUGIN_ROOT" ] && [ -d "$PLUGIN_ROOT" ] || \
-  PLUGIN_ROOT="$(ls -d "$CFG"/plugins/cache/canifi/canifi/*/ 2>/dev/null | sort -V | tail -1)"
-[ -n "$PLUGIN_ROOT" ] && [ -d "$PLUGIN_ROOT" ] || \
-  PLUGIN_ROOT="$CFG/plugins/marketplaces/canifi/plugins/canifi"
-PLUGIN_ROOT="${PLUGIN_ROOT%/}"
-echo "$PLUGIN_ROOT"
+Glob for the marker file that only ever exists inside this plugin:
+
+```
+Glob  pattern: **/plugins/**/canifi/**/skills/council/council-cost-lib.js
 ```
 
-Order matters: the env var if it is ever populated, then the newest installed version
-(`sort -V`, because `0.10.0` sorts below `0.9.0` lexically), then the marketplace clone as
-a last resort. If the final `echo` prints nothing or the directory has no `skills/`
-subdirectory, stop and tell the user the plugin looks broken — do not guess a path.
+If that returns nothing, widen to `**/skills/council/council-cost-lib.js`.
 
+Take the match with the **highest version segment** in its path (paths look like
+`.../plugins/cache/canifi/canifi/0.3.0/skills/...`; compare numerically, so `0.10.0`
+beats `0.9.0` — never compare these as plain strings). `PLUGIN_ROOT` is everything
+before `/skills/`.
 
+Use `PLUGIN_ROOT` for every bundled file from then on, and always join paths with `/` —
+Claude Code's file tools accept forward slashes on Windows.
 
-1. Confirm the bundled reference material exists:
-   `ls $PLUGIN_ROOT/skills/canifidevsetup/reference/ $PLUGIN_ROOT/skills/canifidevsetup/scripts/`.
-   If either is missing, tell the user plainly and stop — this skill's
-   install is incomplete and generation has no authority to mirror without
-   it. Do not fall back to searching for or requesting an external export —
-   the reference material ships inside this skill; there is no other
-   legitimate source.
-2. Check for prior runs: does `~/.claude/skills/director/SKILL.md` (or any
-   skill this wizard previously generated — look for a
-   `generated-by: canifidevsetup` line in frontmatter) already exist? If
-   yes, ask the user up front: update/regenerate the existing system, or
-   abort. Never silently overwrite; if regenerating, back up each file to
-   `<file>.bak.<epoch>` before writing.
-3. Confirm `tmux` and `gh` are installed (`command -v tmux gh`). Missing
-   `gh` only matters if the interview later lands on GitHub for issues or
-   journaling — note it, don't block yet.
+If Glob returns no match at all, stop and tell the user the plugin install looks
+incomplete and to try `/plugin install canifi` again. Never guess a path, and never
+fall back to a hardcoded `~/.claude/...`, which is wrong whenever `CLAUDE_CONFIG_DIR`
+is set.
+
 
 ## Phase 1 — Open-ended discovery (always first, always free-form)
 
