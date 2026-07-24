@@ -9,7 +9,7 @@ version: 11.0.0-plugin
 
 The user-facing flow is one interactive **discovery** pass, then ONE background **Workflow** that runs Research → Implementation → Cleanup with **no approval gates**. Underneath: each unit of work runs on the model that fits it best, at a fixed effort per tier, and the plan binds every worker to a minimal-sufficiency contract.
 
-**Why tiering via `agent({model, effort})`:** the workflow routes each agent to the right model AND sets an explicit **effort** per tier — because effort is set per `agent()` call inside the script, a session-wide effort setting never overrides it. Worker and Planner run the SAME model (Opus) — **effort is the only dial that separates them.**
+**Why tiering via `agent({model, effort})`:** the Workflow `agent()` `model:` option pins each agent to an explicit model instead of silently inheriting the session default, and sets an explicit **effort** per tier — because we set effort per `agent()` call in our own script, session-wide ultracode/xhigh never applies. The skill passes plain model ids as `haikuModel`, `opusModel`. Worker and Planner now run the SAME model (Opus) — **effort is the only dial that separates them.**
 
 **Locked effort ladder (in `council-workflow.js`):** Haiku (discovery/cleanup/contract-verify) = **high**; Worker (Opus — scout, librarian, reconciler, integrator, finalizer, most impl tasks) = **low**, flat, no per-role override; Planner (Opus — plan synthesis) = **medium — never xhigh** (plan synthesis is bounded; xhigh just burns thinking tokens).
 
@@ -107,7 +107,7 @@ Every run gets its own identity so multiple councils never collide.
 - **Build Dir:** {absolute build dir}
 - **Original Request:** [user's request verbatim]
 - **Workflow Run ID:** (set when the workflow launches)
-- **Architecture:** Haiku researches/reviews/cleans; Opus implements+integrates+finalizes at low effort, medium effort for plan synthesis only (tiered via agent({model, effort}))
+- **Architecture:** Haiku researches/reviews/cleans; Opus low plans+implements+integrates+finalizes at low effort, medium effort for plan synthesis only (tiered via agent({model, effort}))
 
 ---
 
@@ -194,7 +194,8 @@ This single call runs all three remaining phases. The script lives next to this 
 
 Notes:
 - Pass `workflowDir` and `buildDir` as **absolute** paths (expand `~`). `workflowDir` holds state under Documents; `buildDir` is where the code actually changes (repo root, or the greenfield target). Pass `requirements` as the actual summary text so agents don't re-derive it (they still read `sprint-plan.md` for full detail).
-- **Pass `costLib` as a literal absolute path** (Step 2.4). Model tiering needs no arguments — the script holds the model IDs itself. The planner runs Opus at **medium** effort; every other Opus call runs at **low** effort — same model, different effort per `agent()` call.
+- **Pass `costLib` as a literal absolute path** (Step 2.4).
+- **`haikuModel`/`opusModel` are optional overrides** — omit them and `council-workflow.js` defaults to the literal Claude model IDs (Haiku / Opus) internally, which pins every agent() call to an explicit model instead of silently inheriting the session default. Only pass them explicitly if you want to override the default for a specific run. The planner uses the Opus model at **medium** effort; every other Opus call uses it at **low** effort — same model, different effort per `agent()` call. The workflow routes each agent via `agent({model, effort})`.
 - The Workflow tool returns **immediately** with a runId and runs in the **background**. **Record the runId** in the checkpoint under `Workflow Run ID` and set `Current Phase: SPRINT1_ACTIVE`. Do NOT poll or sleep — you'll get a `<task-notification>` when it finishes. The user can watch live with `/workflows` (per-agent token totals there are the real cost benchmark).
 - **No sentinel bookkeeping needed.** The live cost statusline auto-discovers the active run itself — every render it scans this session's `subagents/workflows/wf_*/` dirs and picks whichever has the freshest `journal.jsonl` mtime, so it always reflects reality (LIVE within 8s of activity, DONE once idle) with zero manual "mark as running/done" steps, including across process restarts/resumes.
 - The script itself advances the checkpoint phase (SPRINT1→SPRINT2→SPRINT3→COMPLETE) and writes `decisions.md`, `repo-digest.md`, `engineer-handoff.md`, and `walkthrough.md` as it goes.
@@ -225,7 +226,7 @@ When the `<task-notification>` arrives:
 1. **Read the checkpoint first** — never assume state.
 2. **One interactive phase only.** Discovery asks questions; everything after is autonomous. No plan approval.
 3. **The workflow is one background call.** Don't poll or sleep; wait for the notification. Record the runId for resume.
-4. **Model tiering works via `agent({model, effort})`.** Haiku for cheap parallel work; Opus at low effort for everything else; Opus at medium effort for plan synthesis — same model as the workers, distinguished only by effort.
+4. **Model tiering works via `agent({model, effort})`**, pinning every agent to an explicit model+effort instead of silently inheriting the session default. Haiku for cheap parallel work; Opus at low effort for everything else; Opus at medium effort for plan synthesis — same model as the workers, distinguished only by effort.
 5. **Quality from structure, not per-worker intelligence.** Haiku researches (often in duplicate) and reviews; the medium-effort Opus planner plans; the low-effort Opus workers implement, integrate, and judge. The task briefs ARE the quality contract — that's why the synthesizer runs at the higher (medium) effort tier.
 6. **Docs folder is the shared brain.** Agents read/write `sprint-plan.md`, `decisions.md`, `repo-digest.md`, `engineer-handoff.md`, `walkthrough.md`, `council-checkpoint.md`. `decisions.md` is written only by the synthesizer; `repo-digest.md` only by the librarian (advisory — agents verify load-bearing claims against raw files).
 8. **All state lives under `~/Documents/council-docs/{WORKFLOW_ID}/`** — project-agnostic, never in the repo, never under `.claude/`.
@@ -266,4 +267,4 @@ Paths recap:
 - Build dir:    `args.buildDir`  (where code changes happen; workflow agent cwd)
 - Script:       `{this skill dir}/council-workflow.js`
 - Analyzer reg: copied to `{WORKFLOW_DIR}/static-analysis-tools.json` at init
-- Model tiers:  Haiku (research/review/cleanup) · Opus (everything else, low effort; medium effort for plan synthesis) — routed via `agent({model, effort})`
+- Model tiers:  `args.haikuModel` (research/review/cleanup) · `args.opusModel` (everything else, low effort; medium effort for plan synthesis) — both optional, default to the literal Claude model IDs; routed via `agent({model, effort})`

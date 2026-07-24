@@ -4,20 +4,26 @@
     "name": "Andre Jones"
   },
   "metadata": {
-    "description": "Canifi — contract-bound agent workflows for Claude Code.",
-    "version": "0.1.0"
+    "description": "Canifi \u2014 contract-bound agent workflows for Claude Code.",
+    "version": "0.1.1"
   },
   "plugins": [
     {
       "name": "canifi",
       "source": "./plugins/canifi",
       "description": "Council, plus interview-driven generators for your own autonomous dev team and second-brain research system.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "author": {
         "name": "Andre Jones"
       },
       "license": "MIT",
-      "keywords": ["workflow", "agents", "orchestration", "research", "automation"]
+      "keywords": [
+        "workflow",
+        "agents",
+        "orchestration",
+        "research",
+        "automation"
+      ]
     }
   ]
 }

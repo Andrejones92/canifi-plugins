@@ -14,12 +14,17 @@ export const meta = {
 //   args.workflowId      the {slug}-{timestamp} id
 //   args.originalRequest the user's verbatim request
 //   args.requirements    the Phase 0 requirements summary text from discovery
+//   args.haikuModel      model id for Haiku (research slices, cleanup foci, haiku-tier impl)
+//   args.opusModel       model id for Opus  (everything else — workers at low effort,
+//                        the plan-synthesizer at medium effort; same model, effort is the dial)
 //   args.costLib         Absolute path to council-cost-lib.js (the finalizer shells out
 //                        to it for the run cost summary). The skill resolves this from
 //                        ${CLAUDE_PLUGIN_ROOT} and passes the literal path, because
 //                        workflow scripts cannot read environment variables.
 //
-// Model tiering uses plain Claude model IDs via `agent({model, effort})`.
+// haikuModel/opusModel both default to the literal Claude model ID below if not
+// passed — this pins every agent() call to an explicit model instead of silently
+// inheriting the session default. Direct Anthropic API only; no Bedrock.
 // ---------------------------------------------------------------------------
 
 const ARGS = typeof args === 'string' ? JSON.parse(args) : (args ?? {})
@@ -29,11 +34,11 @@ const WID  = ARGS?.workflowId      ?? 'unknown-workflow'
 const REQUEST      = ARGS?.originalRequest ?? '(no original request provided)'
 const REQUIREMENTS = ARGS?.requirements    ?? '(no requirements summary provided — read sprint-plan.md Phase 0)'
 
-const HAIKU_MODEL = 'claude-haiku-4-5-20251001'
-const OPUS_MODEL  = 'claude-opus-5'
+const HAIKU_MODEL = ARGS?.haikuModel || 'claude-haiku-4-5-20251001'
+const OPUS_MODEL  = ARGS?.opusModel  || 'claude-opus-5'
 
 if (!DIR) {
-  throw new Error('council-workflow: args.workflowDir is required. Pass {workflowDir, workflowId, originalRequest, requirements, costLib}.')
+  throw new Error('council-workflow: args.workflowDir is required. Pass {workflowDir, workflowId, originalRequest, requirements, costLib}. haikuModel/opusModel are optional overrides.')
 }
 
 const PLAN         = `${DIR}/sprint-plan.md`
@@ -162,7 +167,7 @@ const EFFORT = {
   planner: 'medium',
 }
 
-// Helper: build agent opts with model + effort for a given tier.
+// Helper: build agent opts with a model id + effort for a given tier.
 // tier: 'haiku' | 'worker' | 'planner'. effortOverride is still supported for
 // a one-off deviation, but no call site uses it by default any more — Worker
 // is flat 'low'.
