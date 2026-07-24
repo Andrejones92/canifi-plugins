@@ -55,8 +55,31 @@ default to an example you've seen elsewhere.
 
 ## Phase 0 — Preflight
 
+### Resolving this plugin's own files
+
+`$CLAUDE_PLUGIN_ROOT` is **not** exported into the Bash tool, so never rely on it alone.
+Resolve the plugin root with this block and use `$PLUGIN_ROOT` from then on:
+
+```bash
+CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
+[ -n "$PLUGIN_ROOT" ] && [ -d "$PLUGIN_ROOT" ] || \
+  PLUGIN_ROOT="$(ls -d "$CFG"/plugins/cache/canifi/canifi/*/ 2>/dev/null | sort -V | tail -1)"
+[ -n "$PLUGIN_ROOT" ] && [ -d "$PLUGIN_ROOT" ] || \
+  PLUGIN_ROOT="$CFG/plugins/marketplaces/canifi/plugins/canifi"
+PLUGIN_ROOT="${PLUGIN_ROOT%/}"
+echo "$PLUGIN_ROOT"
+```
+
+Order matters: the env var if it is ever populated, then the newest installed version
+(`sort -V`, because `0.10.0` sorts below `0.9.0` lexically), then the marketplace clone as
+a last resort. If the final `echo` prints nothing or the directory has no `skills/`
+subdirectory, stop and tell the user the plugin looks broken — do not guess a path.
+
+
+
 1. Confirm the reference file exists:
-   `ls ${CLAUDE_PLUGIN_ROOT}/skills/canifilifesetup/reference/`. If missing, tell the
+   `ls $PLUGIN_ROOT/skills/canifilifesetup/reference/`. If missing, tell the
    user plainly and stop — there is no other legitimate source for the
    mechanics authority.
 2. Check for prior runs: any existing skill with a `generated-by:

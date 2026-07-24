@@ -102,7 +102,10 @@ Generates a personal research system whose core is a [Google Open Knowledge Form
 ## Requirements
 
 - Claude Code with plugin support
-- `/canifi:council` uses the Workflow tool and Node for its cost engine
+- `/canifi:council` needs the **Workflow tool**; the cost readouts need **Node**
+- External scanners (TruffleHog, Semgrep, OSV-Scanner) are optional — each is detected
+  before use, and a missing one is recorded as "scan not performed" rather than
+  silently passed
 - The setup skills generate tmux-based orchestration, so they assume tmux for the systems they produce
 
 ## Development

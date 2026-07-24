@@ -13,7 +13,7 @@ bash scripts under `~/.claude/skills/` that implement a director-orchestrated,
 on-demand spawn/teardown tmux team system tailored to THIS user's projects.
 
 **The mechanics authority is bundled inside this skill, at
-`${CLAUDE_PLUGIN_ROOT}/skills/canifidevsetup/reference/`.** No external export or zip is
+`$PLUGIN_ROOT/skills/canifidevsetup/reference/`.** No external export or zip is
 required — everything Phase 6 needs to mirror ships with this skill itself.
 Before generating anything in Phase 6, read these bundled files in full —
 every generated file mirrors their patterns with the user's answers
@@ -87,8 +87,31 @@ default and your recommendation is always this):**
 
 ## Phase 0 — Preflight
 
+### Resolving this plugin's own files
+
+`$CLAUDE_PLUGIN_ROOT` is **not** exported into the Bash tool, so never rely on it alone.
+Resolve the plugin root with this block and use `$PLUGIN_ROOT` from then on:
+
+```bash
+CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
+[ -n "$PLUGIN_ROOT" ] && [ -d "$PLUGIN_ROOT" ] || \
+  PLUGIN_ROOT="$(ls -d "$CFG"/plugins/cache/canifi/canifi/*/ 2>/dev/null | sort -V | tail -1)"
+[ -n "$PLUGIN_ROOT" ] && [ -d "$PLUGIN_ROOT" ] || \
+  PLUGIN_ROOT="$CFG/plugins/marketplaces/canifi/plugins/canifi"
+PLUGIN_ROOT="${PLUGIN_ROOT%/}"
+echo "$PLUGIN_ROOT"
+```
+
+Order matters: the env var if it is ever populated, then the newest installed version
+(`sort -V`, because `0.10.0` sorts below `0.9.0` lexically), then the marketplace clone as
+a last resort. If the final `echo` prints nothing or the directory has no `skills/`
+subdirectory, stop and tell the user the plugin looks broken — do not guess a path.
+
+
+
 1. Confirm the bundled reference material exists:
-   `ls ${CLAUDE_PLUGIN_ROOT}/skills/canifidevsetup/reference/ ${CLAUDE_PLUGIN_ROOT}/skills/canifidevsetup/scripts/`.
+   `ls $PLUGIN_ROOT/skills/canifidevsetup/reference/ $PLUGIN_ROOT/skills/canifidevsetup/scripts/`.
    If either is missing, tell the user plainly and stop — this skill's
    install is incomplete and generation has no authority to mirror without
    it. Do not fall back to searching for or requesting an external export —
@@ -316,7 +339,7 @@ Two parts:
 - **Scripts — copy, don't rewrite.** `nudge.sh`, `ack.sh`, `watch.sh`,
   `await-acks.sh`, `monitor-peers.sh` are already fully generic
   (parameterized by session name / file path) and ship bundled at
-  `${CLAUDE_PLUGIN_ROOT}/skills/canifidevsetup/scripts/`. `cp` them straight from there
+  `$PLUGIN_ROOT/skills/canifidevsetup/scripts/`. `cp` them straight from there
   into the generated coordination skill's `scripts/` dir, `chmod +x`. No
   external path is ever needed for this.
 - **`SKILL.md`** — a generalized `reference/cross-platform-testing.SKILL.md`: the

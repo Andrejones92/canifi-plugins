@@ -78,6 +78,27 @@ offers to install them **once**, then never asks again.
 
 **Do this before Step 1, and only if the marker file is absent.**
 
+### Resolving this plugin's own files
+
+`$CLAUDE_PLUGIN_ROOT` is **not** exported into the Bash tool, so never rely on it alone.
+Resolve the plugin root with this block and use `$PLUGIN_ROOT` from then on:
+
+```bash
+CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
+[ -n "$PLUGIN_ROOT" ] && [ -d "$PLUGIN_ROOT" ] || \
+  PLUGIN_ROOT="$(ls -d "$CFG"/plugins/cache/canifi/canifi/*/ 2>/dev/null | sort -V | tail -1)"
+[ -n "$PLUGIN_ROOT" ] && [ -d "$PLUGIN_ROOT" ] || \
+  PLUGIN_ROOT="$CFG/plugins/marketplaces/canifi/plugins/canifi"
+PLUGIN_ROOT="${PLUGIN_ROOT%/}"
+echo "$PLUGIN_ROOT"
+```
+
+Order matters: the env var if it is ever populated, then the newest installed version
+(`sort -V`, because `0.10.0` sorts below `0.9.0` lexically), then the marketplace clone as
+a last resort. If the final `echo` prints nothing or the directory has no `skills/`
+subdirectory, stop and tell the user the plugin looks broken — do not guess a path.
+
 ### 0.1 — Check the marker
 
 ```
@@ -144,8 +165,8 @@ Otherwise:
 2. Copy the lib and the scripts the choice needs. They resolve each other by
    `__dirname`, so they must all land in the same directory:
    ```
-   cp "${CLAUDE_PLUGIN_ROOT}/skills/council/council-cost-lib.js" ~/.claude/scripts/
-   cp "${CLAUDE_PLUGIN_ROOT}/skills/council/statusline/"*.js     ~/.claude/scripts/
+   cp "$PLUGIN_ROOT/skills/council/council-cost-lib.js" ~/.claude/scripts/
+   cp "$PLUGIN_ROOT/skills/council/statusline/"*.js     ~/.claude/scripts/
    ```
 3. If replacing: `cp ~/.claude/settings.json ~/.claude/settings.json.bak` first,
    and tell the user the backup path.
@@ -213,7 +234,7 @@ offer returns on the next council run. Mention this **only** if they ask.
 2. **Create the dir:** `mkdir -p ~/Documents/council-docs/{WORKFLOW_ID}`.
 3. **Copy the analyzer registry** so the workflow's verify can reach it:
    `cp "{PATH_TO_THIS_SKILL_DIR}/static-analysis-tools.json" "{WORKFLOW_DIR}/static-analysis-tools.json"`.
-4. **Resolve the cost-engine path.** The finalizer shells out to the bundled cost engine to write the run's cost summary. Workflow scripts cannot read environment variables, so resolve it here and pass the literal absolute path as `costLib`: `echo "$CLAUDE_PLUGIN_ROOT/skills/council/council-cost-lib.js"`. If `$CLAUDE_PLUGIN_ROOT` is empty (running this skill standalone rather than from the plugin), use the absolute path to `council-cost-lib.js` sitting next to this SKILL.md. If it cannot be resolved at all, pass an empty string — the finalizer records "cost summary unavailable" as a residual risk and continues.
+4. **Resolve the cost-engine path.** The finalizer shells out to the bundled cost engine to write the run's cost summary. Workflow scripts cannot read environment variables, so resolve it here using the same `$PLUGIN_ROOT` block as Step 0.1, then pass `"$PLUGIN_ROOT/skills/council/council-cost-lib.js"` as a literal absolute path. Verify it exists (`test -f`) before passing it. If it cannot be resolved, pass an empty string — the finalizer records "cost summary unavailable" as a residual risk and continues.
 5. **Determine the BUILD directory** — where the work actually happens. For a change to an existing repo, that's the repo root (the session's cwd, usually). For a greenfield build, it's the target dir. You pass this as `args.buildDir` so the workflow agents know where the code is and `cd` there. (The workflow dir under Documents is for state ONLY — never the build target.)
 6. **Write the initial checkpoint** to `{WORKFLOW_DIR}/council-checkpoint.md`:
 
