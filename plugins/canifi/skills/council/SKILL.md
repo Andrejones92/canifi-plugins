@@ -108,7 +108,8 @@ One call, two questions:
 | --- | --- |
 | Council only | `statusline-council-cost.js` — live per-model spend for the running council workflow, nothing else |
 | Full stack | `statusline-combined.js` — main-thread spend, council spend, and plain Agent-tool spend, stacked |
-| Not now | Install nothing. Never asked again. |
+| Not now | Install nothing. **You will be asked again** on your next council run. |
+| Never ask again | Install nothing, and never raise this again. |
 
 Say plainly what each writes: the scripts are copied to `~/.claude/scripts/`,
 and `statusLine` in `~/.claude/settings.json` is set to run one of them.
@@ -121,7 +122,7 @@ Show them the command it currently runs, verbatim, and ask:
 | --- | --- |
 | Replace it (back up first) | Copy `settings.json` to `settings.json.bak`, then overwrite `statusLine` |
 | Keep mine, just copy the scripts | Files land in `~/.claude/scripts/`; print the one line to paste themselves |
-| Cancel | Nothing is written |
+| Cancel | Nothing is written. You will be asked again next run. |
 
 **Never overwrite an existing `statusLine` without an explicit answer to this
 question.** A status line is something people tune; silently replacing it is
@@ -129,7 +130,13 @@ not acceptable.
 
 ### 0.4 — Act on the answer
 
-If **Not now** or **Cancel** — write the marker (0.5) and go to Step 1.
+Branch on the answer:
+
+- **Never ask again** — write the marker (0.5) with `"choice": "declined"`, then go to Step 1.
+- **Not now**, or **Cancel** on the conflict question — write **no marker**. Go straight to
+  Step 1. The offer returns on the next council run, because the user has not made a durable
+  decision yet. Do not nag about it, do not explain it — just move on.
+- Any install choice — do the install below, then write the marker.
 
 Otherwise:
 
@@ -153,7 +160,10 @@ Otherwise:
 
 ### 0.5 — Write the marker
 
-Always, on every path including cancel:
+**Only on a durable decision** — an install, or an explicit "never ask again". A "not now"
+or a cancel writes nothing, so the user is asked again next time.
+
+When you do write it:
 
 ```
 mkdir -p ~/.claude/canifi
@@ -171,7 +181,8 @@ Write `~/.claude/canifi/statusline-choice.json`:
 ```
 
 The marker lives outside the plugin directory on purpose — it survives plugin
-updates and reinstalls, so a user who declined once is never asked again.
+updates and reinstalls, so a user who chose "never ask again" is never asked again,
+even after upgrading the plugin.
 
 If the user later wants to change their mind, they delete that file and the
 offer returns on the next council run. Mention this **only** if they ask.

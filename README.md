@@ -70,15 +70,19 @@ and then never asks again:
 | --- | --- |
 | Council only | Live per-model spend for the running council workflow |
 | Full stack | Main-thread spend, council spend, and Agent-tool spend, stacked |
-| Not now | Nothing installed, never asked again |
+| Not now | Nothing installed. Asked again next run |
+| Never ask again | Nothing installed, and never raised again |
 
 The scripts are copied to `~/.claude/scripts/` and `statusLine` is set in your
 `~/.claude/settings.json`. If you already have a status line configured, Council shows you
 what it is, backs the file up to `settings.json.bak`, and only replaces it if you say so —
 or copies the scripts and leaves your config alone if you'd rather wire it yourself.
 
-The decision is recorded at `~/.claude/canifi/statusline-choice.json`, which lives outside
-the plugin so it survives updates. Delete that file to be asked again.
+The decision is only recorded once you actually decide — an install, or "never ask again".
+A "not now" writes nothing, so you get the offer again next time rather than losing it.
+
+The record lives at `~/.claude/canifi/statusline-choice.json`, outside the plugin, so it
+survives updates and reinstalls. Delete that file to be asked again.
 
 ## canifidevsetup
 

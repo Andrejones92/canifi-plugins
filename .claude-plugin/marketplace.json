@@ -5,14 +5,14 @@
   },
   "metadata": {
     "description": "Canifi \u2014 contract-bound agent workflows for Claude Code.",
-    "version": "0.2.0"
+    "version": "0.2.1"
   },
   "plugins": [
     {
       "name": "canifi",
       "source": "./plugins/canifi",
       "description": "Council, plus interview-driven generators for your own autonomous dev team and second-brain research system.",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "author": {
         "name": "Andre Jones"
       },
