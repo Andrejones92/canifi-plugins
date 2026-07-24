@@ -114,13 +114,23 @@ Generates a personal research system whose core is a [Google Open Knowledge Form
 | --- | --- | --- |
 | `/canifi:council` | ✅ | ✅ |
 | `/canifi:canifilifesetup` | ✅ | ✅ |
-| `/canifi:canifidevsetup` | ✅ | ❌ — see below |
+| `/canifi:canifidevsetup` | ✅ tmux | ✅ [psmux](https://github.com/psmux/psmux) |
 | Cost status lines | ✅ | ✅ (needs Node) |
 
-`canifidevsetup` generates a **tmux**-based orchestration system, and tmux has no native
-Windows build. On Windows, run Claude Code inside **WSL 2** and generate the system there,
-with your repos on the WSL filesystem. The skill checks your platform before the interview
-and stops rather than producing something that cannot run.
+`canifidevsetup` generates a system driven by a terminal multiplexer. On macOS, Linux and
+WSL that is **tmux** and the generated scripts are bash. On native Windows it is
+**[psmux](https://github.com/psmux/psmux)** — a native Windows tmux written in Rust, no
+WSL/Cygwin/MSYS2 needed — and the generated scripts are PowerShell. psmux implements the
+whole surface this system depends on: `new-session -d -s`, `send-keys`, `has-session`,
+`list-sessions -F`, `capture-pane -p`, `kill-session`, `display-message -p`.
+
+One deliberate difference on Windows: existence checks match on `#{session_name}` alone
+rather than `#{session_name}` + `#{session_group}`. The group-aware check exists purely to
+defend against **iTerm2's** tmux integration, which is macOS-only.
+
+> The Windows path is not yet verified on real hardware. The command surface is confirmed
+> against psmux's compatibility matrix, but nobody has run a full director lap on Windows —
+> treat the first run as a shakedown and please file issues.
 
 Nothing in this plugin shells out to resolve its own files: path discovery uses Glob and
 file operations use Read/Write, so it behaves the same whether Claude Code gives you Bash,

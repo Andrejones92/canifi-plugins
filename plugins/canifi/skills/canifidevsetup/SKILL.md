@@ -89,27 +89,51 @@ default and your recommendation is always this):**
 
 ### Platform check — do this first
 
-The system this skill generates is built on **tmux**: the director spawns each team as
-tmux sessions and tears them down afterwards. That is not portable everywhere, so
-establish the user's platform before spending an interview on it.
+The system this skill generates drives a **terminal multiplexer**: the director spawns
+each team as sessions and tears them down afterwards. Which multiplexer depends on the
+user's platform, so establish that before spending an interview on it.
 
-Ask the user directly if you are unsure. Do not shell out to detect it — on native
-Windows without Git for Windows there is no Bash tool at all.
+Ask the user directly. Do not shell out to detect it — on native Windows without Git for
+Windows there is no Bash tool at all.
 
-| Platform | Verdict |
-| --- | --- |
-| macOS, Linux | Supported. Continue. |
-| Windows + WSL | Supported — but everything generated must live **inside WSL**, and the repos it drives must be on the WSL filesystem. Say so before continuing. |
-| Native Windows (PowerShell or Git Bash) | **Not supported.** tmux does not run there. |
+| Platform | Multiplexer | Scripts to generate |
+| --- | --- | --- |
+| macOS, Linux | `tmux` | `.sh` (bash) |
+| Windows + WSL 2 | `tmux` inside WSL | `.sh` (bash), everything on the WSL filesystem |
+| Native Windows | [`psmux`](https://github.com/psmux/psmux) | `.ps1` (PowerShell) |
 
-If they are on native Windows, stop before the interview and tell them plainly:
-this skill generates a tmux orchestration system, tmux has no native Windows build,
-and the practical route is to run Claude Code inside WSL 2 and re-run the skill there.
-Do not generate a half-working system, and do not attempt a PowerShell translation —
-the coordination protocol depends on tmux session semantics that have no equivalent.
+**psmux** is a native Windows tmux built in Rust — PowerShell 7+, cmd.exe and Windows
+Terminal, no WSL/Cygwin/MSYS2 required. It implements the full command surface this
+system depends on: `new-session -d -s`, `send-keys -t`, `has-session -t`,
+`list-sessions -F`, `capture-pane -p`, `kill-session`, and `display-message -p`.
 
-`/canifi:council` and `/canifi:canifilifesetup` have no such constraint and work fine
-on native Windows.
+If the user is on native Windows and does not have it, point them at the repo and stop
+until it is installed. Do not generate a half-working system.
+
+#### Two adaptations for the psmux path
+
+1. **Generate `.ps1`, not `.sh`.** Every spawn/teardown/nudge/ack/watch script becomes
+   PowerShell. Keep the logic identical — only the shell changes. `psmux` is a native
+   executable, so the command lines themselves are unchanged.
+
+2. **Drop `#{session_group}` from existence checks.** On macOS the group-aware check
+   exists solely to defend against **iTerm2's** tmux integration, which creates numbered
+   siblings (`lead-9`) inside a session *group* that plain `has-session` misses. iTerm2
+   is macOS-only, so on Windows there is no group to miss and `#{session_group}` is not
+   a documented psmux variable. Match on `#{session_name}` alone there. Everywhere else,
+   keep the group-aware check exactly as the reference scripts have it — it exists
+   because of a real duplicate-session incident.
+
+Everything else — ACK-before-act, on-demand spawn/teardown, no detached background
+processes, the orphan sweep on teardown — carries over unchanged.
+
+> Not yet verified on real hardware. The command surface is confirmed against psmux's
+> compatibility matrix, but no one has run a full director lap on Windows. Say so if the
+> user asks, and treat the first Windows run as a shakedown.
+
+`/canifi:council` and `/canifi:canifilifesetup` have no multiplexer dependency and work
+on every platform.
+
 
 
 ### Resolving this plugin's own files
@@ -140,6 +164,30 @@ incomplete and to try `/plugin install canifi` again. Never guess a path, and ne
 fall back to a hardcoded `~/.claude/...`, which is wrong whenever `CLAUDE_CONFIG_DIR`
 is set.
 
+
+### Preflight steps
+
+1. **Confirm the bundled reference material exists.** Using `PLUGIN_ROOT` from above,
+   Glob for `PLUGIN_ROOT/skills/canifidevsetup/reference/**` and
+   `PLUGIN_ROOT/skills/canifidevsetup/scripts/**`. If either is empty, tell the user
+   plainly and stop — this plugin's install is incomplete and generation has no
+   authority to mirror without it. Do not fall back to searching for or requesting an
+   external export; the reference material ships inside this plugin and there is no
+   other legitimate source.
+
+2. **Check for prior runs.** Does a previously generated system already exist? Glob for
+   `**/skills/director/SKILL.md`, and for any skill carrying a
+   `generated-by: canifidevsetup` line in its frontmatter. If yes, ask the user up front:
+   update/regenerate, or abort. **Never silently overwrite.** If regenerating, back up
+   each file to `<file>.bak.<epoch>` before writing.
+
+3. **Confirm the dependencies for their platform.**
+   - macOS/Linux/WSL: `tmux` and `gh`
+   - Native Windows: `psmux` and `gh`
+
+   Missing `gh` only matters if the interview later lands on GitHub for issues or
+   journaling — note it, don't block yet. A missing multiplexer **does** block: without
+   it nothing the wizard generates can run.
 
 ## Phase 1 — Open-ended discovery (always first, always free-form)
 
