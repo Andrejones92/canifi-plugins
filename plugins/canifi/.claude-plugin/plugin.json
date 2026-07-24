@@ -1,0 +1,12 @@
+{
+  "name": "canifi",
+  "description": "Contract-bound agent workflows for Claude Code. Council runs discovery-to-delivery on a request with no approval gates; canifidevsetup and canifilifesetup interview you and generate your own orchestration and research systems as real skill files.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Andre Jones"
+  },
+  "homepage": "https://github.com/Andrejones92/canifi-plugins",
+  "repository": "https://github.com/Andrejones92/canifi-plugins",
+  "license": "MIT",
+  "keywords": ["workflow", "agents", "orchestration", "research", "automation"]
+}

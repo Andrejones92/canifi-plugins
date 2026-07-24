@@ -1,0 +1,168 @@
+{
+  "$schema": "sprint3-tool-registry-v1",
+  "description": "Council sprint3 per-language static-analyzer registry. Placeholders: {files} = shell-quoted space-separated list, {dirs} = unique parent dirs, {fileListPath} = newline-list temp file, {cargoToml} = nearest Cargo.toml, {reportDir} = temp dir for JSON reports.",
+  "polyglot": {
+    "tool": "semgrep",
+    "detect": "command -v semgrep",
+    "install": [
+      "pipx install semgrep",
+      "brew install semgrep",
+      "pip install --user semgrep"
+    ],
+    "check": "semgrep scan --config p/ci --json --quiet --error {files}",
+    "fix": null,
+    "scopeStrategy": "files",
+    "notes": "Autofix coverage under 20 percent; use for detection not remediation. Apex support is BETA."
+  },
+  "languages": {
+    "typescript": {
+      "extensions": [".ts", ".tsx", ".mts", ".cts"],
+      "primary": {
+        "tool": "biome",
+        "detect": "command -v biome || npx --yes @biomejs/biome --version",
+        "install": [
+          "npm i -g @biomejs/biome",
+          "npx --yes @biomejs/biome --help"
+        ],
+        "check": "biome check --max-diagnostics=200 --reporter=json {files}",
+        "fix": "biome check --write {files}",
+        "scopeStrategy": "files",
+        "configFiles": ["biome.json", "biome.jsonc"]
+      },
+      "fallback": "polyglot",
+      "notes": "Biome has plugin gaps vs ESLint: react-hooks (2 rules only), eslint-plugin-import (~4 rules), sonarjs (2 rules). For repos heavy in those plugins, keep project ESLint via project config (we honor .eslintrc*)."
+    },
+    "javascript": {
+      "extensions": [".js", ".jsx", ".mjs", ".cjs"],
+      "primary": {
+        "tool": "biome",
+        "detect": "command -v biome || npx --yes @biomejs/biome --version",
+        "install": [
+          "npm i -g @biomejs/biome",
+          "npx --yes @biomejs/biome --help"
+        ],
+        "check": "biome check --max-diagnostics=200 --reporter=json {files}",
+        "fix": "biome check --write {files}",
+        "scopeStrategy": "files",
+        "configFiles": ["biome.json", "biome.jsonc"]
+      },
+      "fallback": "polyglot"
+    },
+    "python": {
+      "extensions": [".py", ".pyi"],
+      "primary": {
+        "tool": "ruff",
+        "detect": "command -v ruff",
+        "install": [
+          "pipx install ruff",
+          "uv tool install ruff",
+          "pip install --user ruff",
+          "brew install ruff"
+        ],
+        "check": "ruff check --output-format=json {files}",
+        "fix": "ruff check --fix {files}",
+        "scopeStrategy": "files",
+        "configFiles": [".ruff.toml", "ruff.toml", "pyproject.toml"]
+      },
+      "fallback": "polyglot",
+      "notes": "Lint only. Type checking (mypy/pyright/ty) is opt-in via project config; default is lint-only."
+    },
+    "java": {
+      "extensions": [".java"],
+      "primary": {
+        "tool": "pmd",
+        "detect": "command -v pmd",
+        "install": [
+          "brew install pmd",
+          "sdk install pmd"
+        ],
+        "check": "pmd check -f json -R rulesets/java/quickstart.xml --file-list {fileListPath}",
+        "fix": null,
+        "scopeStrategy": "fileList",
+        "configFiles": ["ruleset.xml", "pmd-ruleset.xml"]
+      },
+      "fallback": "polyglot",
+      "notes": "PMD binary handles both Java and Apex. No autofix. Install once, reuse."
+    },
+    "apex": {
+      "extensions": [".cls", ".trigger"],
+      "primary": {
+        "tool": "pmd",
+        "detect": "command -v pmd",
+        "install": [
+          "brew install pmd",
+          "sdk install pmd"
+        ],
+        "check": "pmd check -f json -R rulesets/apex/quickstart.xml --file-list {fileListPath}",
+        "fix": null,
+        "scopeStrategy": "fileList",
+        "configFiles": ["ruleset.xml", "pmd-ruleset.xml"]
+      },
+      "fallback": "polyglot",
+      "notes": "Same PMD binary as Java, different ruleset. Semgrep fallback is BETA for Apex."
+    },
+    "go": {
+      "extensions": [".go"],
+      "primary": {
+        "tool": "golangci-lint",
+        "detect": "command -v golangci-lint",
+        "install": [
+          "brew install golangci-lint",
+          "curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin"
+        ],
+        "check": "golangci-lint run --out-format json {dirs}",
+        "fix": "golangci-lint run --fix {dirs}",
+        "scopeStrategy": "directory",
+        "configFiles": [".golangci.yml", ".golangci.yaml", ".golangci.toml", ".golangci.json"]
+      },
+      "fallback": "polyglot",
+      "notes": "Directory-scoped — pass unique parent dirs of whitelist files. Post-filter JSON output by file path to enforce whitelist-strict."
+    },
+    "ruby": {
+      "extensions": [".rb", ".rake", ".gemspec"],
+      "primary": {
+        "tool": "rubocop",
+        "detect": "command -v rubocop",
+        "install": [
+          "gem install --user-install rubocop"
+        ],
+        "check": "rubocop --format json {files}",
+        "fix": "rubocop -A {files}",
+        "scopeStrategy": "files",
+        "configFiles": [".rubocop.yml"]
+      },
+      "fallback": "polyglot",
+      "notes": "Requires Ruby runtime. --user-install keeps gems in home dir; ensure ~/.gem/ruby/<ver>/bin is on PATH."
+    },
+    "rust": {
+      "extensions": [".rs"],
+      "primary": {
+        "tool": "clippy",
+        "detect": "cargo clippy --version",
+        "install": [
+          "rustup component add clippy"
+        ],
+        "check": "cargo clippy --message-format=json --manifest-path {cargoToml}",
+        "fix": "cargo clippy --fix --allow-dirty --allow-staged --manifest-path {cargoToml}",
+        "scopeStrategy": "crate",
+        "configFiles": ["clippy.toml", ".clippy.toml", "Cargo.toml"]
+      },
+      "fallback": "polyglot",
+      "notes": "Crate-scoped — cannot lint individual files. Invoke at nearest Cargo.toml ancestor and post-filter JSON output by file path. Cross-crate lints (e.g. unused public items) will still surface."
+    },
+    "csharp": {
+      "extensions": [".cs", ".csx"],
+      "primary": {
+        "tool": "dotnet-format",
+        "detect": "dotnet --version",
+        "install": [],
+        "check": "dotnet format --verify-no-changes --include {files} --report {reportDir}",
+        "fix": "dotnet format --include {files}",
+        "scopeStrategy": "projectWithInclude",
+        "configFiles": [".editorconfig", ".globalconfig"]
+      },
+      "fallback": "polyglot",
+      "notes": "Ships with .NET 6+ SDK. Present-or-skip — install is too heavy to auto-bootstrap. Project-scoped; --include narrows to whitelist files. --report writes JSON to reportDir."
+    }
+  }
+}
