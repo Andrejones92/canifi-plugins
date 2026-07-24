@@ -70,6 +70,114 @@ Every run gets its own identity so multiple councils never collide.
 
 ---
 
+## Step 0: First-run status line offer (one time only)
+
+Council spends money across three model tiers and eleven stages. The bundled
+status lines make that spend visible while the run is happening. This step
+offers to install them **once**, then never asks again.
+
+**Do this before Step 1, and only if the marker file is absent.**
+
+### 0.1 — Check the marker
+
+```
+test -f ~/.claude/canifi/statusline-choice.json && echo SKIP || echo OFFER
+```
+
+If `SKIP`, say nothing about status lines and go straight to Step 1. Do not
+mention this step, do not re-offer, do not print the instructions. The
+decision has already been made.
+
+If `OFFER`, continue.
+
+### 0.2 — Read the user's current status line
+
+```
+cat ~/.claude/settings.json 2>/dev/null | grep -A4 '"statusLine"' || echo NONE
+```
+
+Keep the result. You need it for the conflict branch in 0.4.
+
+### 0.3 — Ask, with `AskUserQuestion`
+
+One call, two questions:
+
+**Question 1 — "Install the Council cost status lines?"**
+
+| Option | Meaning |
+| --- | --- |
+| Council only | `statusline-council-cost.js` — live per-model spend for the running council workflow, nothing else |
+| Full stack | `statusline-combined.js` — main-thread spend, council spend, and plain Agent-tool spend, stacked |
+| Not now | Install nothing. Never asked again. |
+
+Say plainly what each writes: the scripts are copied to `~/.claude/scripts/`,
+and `statusLine` in `~/.claude/settings.json` is set to run one of them.
+
+**Question 2 — only if 0.2 returned an existing `statusLine`.**
+
+Show them the command it currently runs, verbatim, and ask:
+
+| Option | Meaning |
+| --- | --- |
+| Replace it (back up first) | Copy `settings.json` to `settings.json.bak`, then overwrite `statusLine` |
+| Keep mine, just copy the scripts | Files land in `~/.claude/scripts/`; print the one line to paste themselves |
+| Cancel | Nothing is written |
+
+**Never overwrite an existing `statusLine` without an explicit answer to this
+question.** A status line is something people tune; silently replacing it is
+not acceptable.
+
+### 0.4 — Act on the answer
+
+If **Not now** or **Cancel** — write the marker (0.5) and go to Step 1.
+
+Otherwise:
+
+1. `mkdir -p ~/.claude/scripts`
+2. Copy the lib and the scripts the choice needs. They resolve each other by
+   `__dirname`, so they must all land in the same directory:
+   ```
+   cp "${CLAUDE_PLUGIN_ROOT}/skills/council/council-cost-lib.js" ~/.claude/scripts/
+   cp "${CLAUDE_PLUGIN_ROOT}/skills/council/statusline/"*.js     ~/.claude/scripts/
+   ```
+3. If replacing: `cp ~/.claude/settings.json ~/.claude/settings.json.bak` first,
+   and tell the user the backup path.
+4. Set `statusLine` in `~/.claude/settings.json`. Read the file, modify the one
+   key, write it back — **preserve every other setting**. Use
+   `node ~/.claude/scripts/statusline-council-cost.js` or
+   `node ~/.claude/scripts/statusline-combined.js` per the choice, with
+   `"type": "command"`, `"padding": 1`, `"refreshInterval": 2`.
+5. If they chose "keep mine", skip 3–4 and print the exact line instead.
+6. Tell them it takes effect on the next session, or immediately after
+   `/config` reload.
+
+### 0.5 — Write the marker
+
+Always, on every path including cancel:
+
+```
+mkdir -p ~/.claude/canifi
+```
+
+Write `~/.claude/canifi/statusline-choice.json`:
+
+```json
+{
+  "choice": "council | combined | scripts-only | declined",
+  "installedAt": "<ISO-8601 timestamp>",
+  "settingsBackup": "<path to .bak, or null>",
+  "pluginVersion": "<version from plugin.json>"
+}
+```
+
+The marker lives outside the plugin directory on purpose — it survives plugin
+updates and reinstalls, so a user who declined once is never asked again.
+
+If the user later wants to change their mind, they delete that file and the
+offer returns on the next council run. Mention this **only** if they ask.
+
+---
+
 ## Step 1: Determine State (read checkpoint first)
 
 **Always start here.**

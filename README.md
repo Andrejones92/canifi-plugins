@@ -61,6 +61,25 @@ The contract verifier is **observability only**. It records drift and surfaces i
 
 State is written to `~/Documents/council-docs/{workflow-id}/` — never into your repo.
 
+### Cost status lines
+
+Council ships live cost readouts. **The first time you run it**, it offers to install them
+and then never asks again:
+
+| Choice | What you get |
+| --- | --- |
+| Council only | Live per-model spend for the running council workflow |
+| Full stack | Main-thread spend, council spend, and Agent-tool spend, stacked |
+| Not now | Nothing installed, never asked again |
+
+The scripts are copied to `~/.claude/scripts/` and `statusLine` is set in your
+`~/.claude/settings.json`. If you already have a status line configured, Council shows you
+what it is, backs the file up to `settings.json.bak`, and only replaces it if you say so —
+or copies the scripts and leaves your config alone if you'd rather wire it yourself.
+
+The decision is recorded at `~/.claude/canifi/statusline-choice.json`, which lives outside
+the plugin so it survives updates. Delete that file to be asked again.
+
 ## canifidevsetup
 
 Generates a round-robin director that spawns a team's sessions on demand, runs them, and tears them down. It does not hand you someone else's rotations — it asks what you actually run (one repo or five platforms, findings-only QA or real feature development) and writes real `SKILL.md` files with your repo names and paths baked in.
