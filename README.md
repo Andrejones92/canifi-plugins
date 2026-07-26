@@ -97,7 +97,7 @@ Non-negotiables it carries forward, learned the hard way:
 
 ## canifilifesetup
 
-Generates a personal research system whose core is a [Google Open Knowledge Format](https://github.com/google/open-knowledge-format) markdown library — plain markdown plus YAML frontmatter, built for fast agent lookup. Every other output (HTML dashboard, podcast, PDF, slides) is independently opt-in and generated *from* that document.
+Generates a personal research system whose core is a Google Open Knowledge Format markdown library — plain markdown plus YAML frontmatter, built for fast agent lookup. Every other output (HTML dashboard, podcast, PDF, slides) is independently opt-in and generated *from* that document.
 
 ## Requirements
 
