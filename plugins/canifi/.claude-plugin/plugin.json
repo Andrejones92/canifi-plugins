@@ -1,7 +1,7 @@
 {
   "name": "canifi",
   "description": "Contract-bound agent workflows for Claude Code. Council runs discovery-to-delivery on a request with no approval gates; canifidevsetup and canifilifesetup interview you and generate your own orchestration and research systems as real skill files.",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "author": {
     "name": "Andre Jones"
   },

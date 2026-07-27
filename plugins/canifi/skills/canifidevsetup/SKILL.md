@@ -98,7 +98,45 @@ default and your recommendation is always this):**
 
 ## Phase 0 — Preflight
 
-### Platform check — do this first
+### Plugin version + auto-update — ASK THIS FIRST, before anything else
+
+This skill ships in a plugin, and **third-party marketplaces have auto-update
+DISABLED by default** (only official Anthropic marketplaces default to on). A
+user who installed months ago is running whatever version they first
+installed, and neither `/plugin marketplace add` nor `/plugin install`
+refreshes it — both report success and no-op on an already-installed
+marketplace. The only reliable signal of what is actually loaded is the
+`Base directory` path this skill was loaded from, which contains the version:
+`.../plugins/cache/<marketplace>/<plugin>/<VERSION>/skills/...`.
+
+So before spending a long interview that generates real files, tell the user
+which version they're on and let them decide:
+
+1. State the version from your own base directory path, plainly — e.g.
+   "You're running this wizard from version X.Y.Z."
+2. Explain in one sentence that third-party plugin marketplaces don't
+   auto-update by default, so this may not be the latest.
+3. **Ask via `AskUserQuestion`** whether they want to update first:
+   - **Update first (recommended if unsure)** — they run
+     `/plugin marketplace update <marketplace>`, then `/plugin` to update the
+     plugin, then re-invoke this skill. Say plainly that this restarts the
+     interview, and that an in-session update does NOT change the already-
+     loaded skill: Claude Code keeps the version it loaded at launch, so
+     re-invoking after `/reload-plugins` (or a relaunch) is required.
+   - **Enable auto-update, then update** — same as above, plus
+     `/plugin` → **Marketplaces** → select the marketplace → **Enable
+     auto-update**, so future sessions refresh on their own. Note the limit
+     honestly: auto-update runs *after* session start with a random delay of
+     up to ten minutes and never affects the running session, so it prevents
+     long-term drift but never helps mid-interview.
+   - **Continue on this version** — proceed now. Perfectly reasonable if they
+     just installed, or don't care about the newest questions.
+
+If they choose either update option, STOP — don't run the interview against a
+version they've decided to replace. If they choose to continue, proceed and
+don't raise it again.
+
+### Platform check — do this second
 
 The system this skill generates drives a **terminal multiplexer**: the director spawns
 each team as sessions and tears them down afterwards. Which multiplexer depends on the
