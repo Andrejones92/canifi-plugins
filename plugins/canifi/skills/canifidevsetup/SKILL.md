@@ -30,6 +30,17 @@ substituted in:
 | `reference/autoqa.SKILL.md` | Concrete example of a findings-only rotation (coverage ledger, issue filing, dedup, reconciliation) |
 | `reference/autoissuefixer.SKILL.md` | Concrete example of a single-session fixer (model tiers, circuit breaker, merge policy) |
 
+**On-demand teams, spend tracking, and a status dashboard (Phase 4/6) have
+NO bundled reference file, deliberately.** These are optional systems you
+author from the mechanism described in Phase 6, built to fit THIS user's
+own answers — not mirrored from a source file, because there isn't one to
+mirror. If you find yourself trying to recall or approximate a specific
+prior implementation of any of these three instead of building one fresh
+from the user's Phase 4 answers, stop — that is exactly the failure mode
+this skill exists to avoid. `reference/` is an example to adapt for the
+mechanics it DOES cover, never a template to clone, and for these three
+systems there is no template at all.
+
 **Non-negotiable properties carried forward from the source (never made
 optional silently — the user can override lifecycle in Phase 4, but the
 default and your recommendation is always this):**
@@ -230,6 +241,21 @@ Cover (adapting to Phase 1):
   team get: a short name (becomes its skill name and roster entry), its
   focus/mission, and which platform(s) it touches. Do not suggest a
   specific count or copy the source's ten-rotation roster.
+- **Auxiliary systems, at a high level.** Ask, as open/closed questions
+  batched together, whether they want any of these three optional systems
+  the source has (each gets a real interview in Phase 4, and each is
+  independently optional — say yes to any subset):
+  - **On-demand teams** — single-session helpers the user can invoke by
+    name outside the round-robin (e.g. "make this change to my marketing
+    site", "review my parked issues"), spawned/briefed/torn down on
+    request, running alongside the round-robin without pausing it.
+  - **Spend tracking** — automatic per-activation dollar-cost logging plus
+    a way to ask for totals/averages later.
+  - **Status dashboard** — a live page (or other view) showing what the
+    round-robin is doing right now.
+  A "no" to any of these is a completely valid, common answer — skip that
+  system's Phase 4 questions and Phase 6 generation step entirely rather
+  than generating a stub nobody asked for.
 
 ## Phase 3 — Org shape and topology
 
@@ -279,14 +305,28 @@ Cover — every answer here gets baked literally into generated files:
   - the director session's own cwd (recommend a dedicated empty folder).
   Show the full proposed directory tree and let them adjust before moving
   on.
-- **Model tiers per role.** Ask what models are actually available in
-  their environment — Bedrock ARNs/inference profiles, plain
-  `sonnet`/`opus`/`haiku`/`fable` CLI shortcuts, or neither (some
-  environments must omit `--model` entirely and inherit `ANTHROPIC_MODEL`).
-  Then ask which tier each role gets: director session, Leads, Principals,
-  fixer planner/worker if applicable. Generated spawn scripts pin exactly
-  what the user chose — including generating NO `--model` flag at all if
-  the user says their environment breaks on model shortcuts.
+- **Model tiers per role — ask, then recommend, never hardcode.** First ask
+  what models are actually available in their environment — Bedrock
+  ARNs/inference profiles, plain `sonnet`/`opus`/`haiku`/`fable` CLI
+  shortcuts, or neither (some environments must omit `--model` entirely and
+  inherit `ANTHROPIC_MODEL`). Then, for each role that exists in THEIR
+  design (director/orchestrator session, Leads, Principals, an on-demand
+  team's single session, a fixer's planner vs. worker split if
+  applicable), **give a concrete recommendation and ask them to confirm or
+  override it** — don't just ask an open "what tier?" and don't silently
+  default to whatever tier the source happens to use today. A reasonable
+  starting recommendation to offer (state it as a recommendation, not a
+  given): orchestration-only sessions that never write code can run on a
+  cheaper/faster tier since their job is coordination, not judgment;
+  sessions that make real judgment calls (deciding whether a finding is
+  real, writing a fix, merging code) warrant a stronger tier; a fixer that
+  writes and merges code unattended is the one place worth paying for the
+  strongest tier available, since it is the part of the system acting
+  without a human in the loop. Record their actual choice per role — this
+  is what generated spawn scripts pin, and it is exactly the kind of thing
+  that changes over time as the user's own preferences change, so make it
+  trivial to find and edit later (one clearly-labeled place per generated
+  script) rather than scattered.
 - **Test/dev environment specifics** — ONLY if the mission involves real
   interactive testing: test account credentials (and where they live), dev
   server URL/port, dev-vs-prod backend boundaries (what's safe to write
@@ -297,6 +337,58 @@ Cover — every answer here gets baked literally into generated files:
   a different bound) and a per-activation cycle count (the source uses
   exactly 2 back-to-back cycles — ask). If they want always-on sessions
   instead, restate the freeze incident and confirm explicitly.
+- **On-demand teams — only if Phase 2 said yes.** For each on-demand team
+  they want:
+  - a short name and one-line mission (what request does this team handle?);
+  - the repo/cwd it works in, and the branch it commits to (or "no repo" for
+    something like a dashboard-only or docs-only helper);
+  - is it a one-shot job (spawn, do the thing, report, teardown) or
+    **iterative** (stays alive across a session so the user can send
+    follow-up requests before it tears down)?
+  - anything it must NEVER do unattended (e.g. "never merge to main", "never
+    deploy") — restate back what the team's write boundary is and get
+    explicit confirmation.
+  Do not assume any specific on-demand team exists — a user with zero
+  auxiliary repos may want none, and a user with many side projects may want
+  five. Whatever list they give becomes their own on-demand-teams config
+  (see Phase 6) — never seed it with the source's own teams.
+- **Spend tracking — only if Phase 2 said yes.** Ask, don't assume:
+  - Do they want cost estimated from real token/transcript data, or is a
+    rougher proxy (session duration, activation count) acceptable? Real
+    dollar pricing needs a per-model rate table — ask if they already have
+    one (e.g. from other tooling) or want a simple placeholder they can fill
+    in with their actual provider's rates later.
+  - Where should the running log live, and in what format (plain
+    append-only text like the rest of this system's own files, a CSV, a
+    JSON-lines file)? Recommend a plain append-only text file in their
+    registry folder, consistent with `director-log.md`/`DIRECTOR-STATE.md`,
+    unless they want something else.
+  - What questions do they actually want to ask of it later ("total this
+    week", "average per team", "most expensive rotation")? This shapes what
+    the query tool needs to compute — don't build more than they'll use.
+- **Status dashboard — only if Phase 2 said yes.** Ask, don't assume:
+  - What form? A locally-served web page, a static file they open by hand,
+    a terminal status command, something else. If a served page, ask how
+    they want to reach it (localhost only, their own LAN, a VPN/mesh
+    network like Tailscale if they already use one, something else) — do
+    not assume any specific hosting mechanism.
+  - What should it show — current position/team/state at minimum; ask if
+    they also want spend-to-date, recent history, or per-team stats
+    surfaced (only offer these if spend tracking above was also chosen).
+  - **The controlled-vocabulary contract, regardless of form chosen:**
+    whatever file or channel the director writes its "what's happening
+    right now" pointer to, and whatever reads it to render the dashboard,
+    are two independent processes agreeing on a plain-text contract, not
+    prose being interpreted by a human. Get explicit agreement in the
+    interview on: the exact field names, the exact fixed set of allowed
+    values for any "state" style field, and where free-form narrative is
+    allowed to go (never inside a matched field, always in a separate
+    prose/notes portion). State this plainly to the user: a renderer that
+    matches on an exact string will silently misreport if the writer ever
+    puts descriptive text into that field instead of one of the agreed
+    tokens — this is a real, easy-to-make mistake worth naming up front so
+    the generated writer and reader agree on the same fixed vocabulary from
+    the start, not after the first misreport.
 
 ## Phase 5 — Confirmation gate (nothing is written before this)
 
@@ -311,7 +403,11 @@ Present one consolidated summary and get an explicit go-ahead via
 3. **The file list** to be written under `~/.claude/skills/` (every path,
    one line each, marked new vs overwrite-with-backup).
 4. Key policy choices restated: mission type(s), fixer yes/no + merge
-   policy, journal target, model tiers, lifecycle model, safety timeout.
+   policy, journal target, model tiers (per role, with the recommendation
+   they confirmed or overrode), lifecycle model, safety timeout, and
+   whichever of on-demand teams / spend tracking / status dashboard they
+   opted into (with their concrete answers for each — team list, log
+   format, dashboard form/hosting) or explicitly declined.
 
 Offer: proceed / edit something (loop back to the relevant phase) / abort.
 If anything material changes after this gate, re-confirm before writing.
@@ -468,14 +564,112 @@ Mirror the source `bootup.sh`:
 - A short companion SKILL.md documenting what it creates and the
   small-footprint rationale.
 
-### 6.6 Verify
+### 6.6 On-demand teams — ONLY if the user opted in during Phase 4
 
-After writing everything: `bash -n` every script; re-read each generated
-SKILL.md's roster/paths against the Phase 5 summary; confirm no ExampleApp
-string (`exampleapp`, `example-web-repo`, `exampleorg`, `exampleapp-ios`) survives in
-any generated file unless the user's own answers genuinely contain it
-(`grep -ril` across the generated files). Report any mismatch and fix it
-before Phase 7.
+**There is no bundled reference implementation for this — author it fresh
+from the user's own answers, the same way you'd write any other feature
+from a spec.** The source system happens to have its own on-demand-team
+scripts, but they are not bundled with this skill and must not be
+approximated from memory or copied from anywhere; what you generate here
+should be buildable correctly for a user whose setup looks nothing like the
+source, using nothing but the mechanism described below and their Phase 4
+answers.
+
+Generate:
+
+- `~/Documents/<registry>/ondemand-teams.conf` (or whatever config format
+  fits the user's other choices) — one entry per team from Phase 4: name,
+  session name, cwd, skill/command to load, model tier, repo, branch,
+  one-line summary. This file is the single source of truth; the spawn/
+  teardown logic below reads it rather than hardcoding each team.
+- A spawn script and a teardown script (in the platform's script language
+  from Phase 0) that: look up a team by name in the conf; create/kill
+  exactly ONE tmux (or psmux) session for it, matching by exact session
+  name (and session group on macOS, per the group-aware pattern used
+  elsewhere in this system); never touch any other session. Idempotent
+  (spawning an already-running team is a no-op; tearing down an absent one
+  is a no-op).
+- A short SKILL.md (or a section of the director's own SKILL.md — either is
+  fine, ask if unsure) describing the protocol: spawn → brief with the
+  user's verbatim request + a fresh id → wait for its own DONE line in the
+  shared log → relay the result to the user → teardown (or keep alive, for
+  teams the user said are iterative). State plainly that this runs
+  alongside the round-robin without pausing, delaying, or consuming a
+  roster turn.
+- If Phase 4 flagged a genuinely shared, non-multiplexable resource this
+  user's setup would hit (a fixed debugging port a browser-automation tool
+  needs, a rate-limited external API, a single physical device) — note the
+  serialization rule in the generated docs. Only include this if it's
+  actually applicable; don't invent a hazard the user's stack doesn't have.
+
+### 6.7 Spend tracking — ONLY if the user opted in during Phase 4
+
+Same rule as above: **write this from the mechanism, not from a copy.**
+The mechanism is straightforward and buildable for any setup: a Claude Code
+session's own transcript file (JSONL, one line per turn, includes token
+counts and a model identifier) is enough to compute a real dollar figure
+given a per-model rate table, and a role's cwd is enough to find its
+transcript directory.
+
+Generate, matching the user's Phase 4 answers:
+
+- A pricing script that, given a role's cwd (and optionally a time window),
+  finds its transcript file(s) and computes a cost from token counts × the
+  user's rate table. If the user didn't have real rates, generate a
+  clearly-labeled placeholder rate table they can fill in, and say so
+  explicitly in the handoff — don't fabricate real-looking numbers from
+  invented rates.
+- A logging step wired into the team/on-demand teardown scripts (their
+  last step, non-fatal on failure — a pricing hiccup logs `unknown` for
+  that role rather than blocking teardown) that appends one line per
+  activation to the user's chosen log file.
+- A stats/query script answering the specific questions the user said they
+  wanted in Phase 4 (totals, averages, per-team breakdowns, whatever they
+  asked for specifically — no more).
+- Note in the handoff that this is best-effort: pricing depends on the
+  transcript format and rate table staying accurate, and any historical
+  activations from before this was generated are not retroactively priced
+  unless the user asks for that as a separate follow-up.
+
+### 6.8 Status dashboard — ONLY if the user opted in during Phase 4
+
+Same rule again: **build the specific form the user chose in Phase 4** (a
+served local page, a static file, a terminal command, whatever they said) —
+do not assume a particular server framework or hosting mechanism they
+didn't ask for.
+
+Generate:
+
+- The renderer/server itself, in whatever the user's environment
+  comfortably supports (ask if unclear rather than guessing a language/
+  framework), reading whatever pointer file the director writes its current
+  state to.
+- If the user chose network-reachable hosting beyond localhost (their own
+  LAN, a mesh network like Tailscale, anything else) and doesn't already
+  have that set up, include a short preflight note in the handoff — what
+  they need to install/configure and confirm working BEFORE the dashboard
+  can be reached that way — rather than silently assuming it exists.
+- **The controlled-vocabulary contract, generated on both sides at once.**
+  Define the exact field names and the exact fixed set of allowed values
+  for the director's "current state" pointer (per the Phase 4 agreement),
+  write the director's own pointer-writing instructions to use ONLY those
+  exact tokens with free narrative confined to prose after a separator
+  (never inside a matched field), and write the renderer to match those
+  same exact tokens. Generating both halves together in the same pass is
+  what keeps them from drifting apart — a renderer written against a
+  vocabulary the writer doesn't actually use is a bug baked in at birth.
+
+### 6.9 Verify
+
+After writing everything: `bash -n` (or the platform-equivalent syntax
+check) every script; re-read each generated SKILL.md's roster/paths against
+the Phase 5 summary; confirm no ExampleApp string (`exampleapp`,
+`example-web-repo`, `exampleorg`, `exampleapp-ios`) and no source-specific
+string from the on-demand/spend/dashboard mechanics above (anything that
+looks like it was copied from another user's setup rather than generated
+fresh from this user's own answers) survives in any generated file unless
+the user's own answers genuinely contain it (`grep -ril` across the
+generated files). Report any mismatch and fix it before Phase 7.
 
 ## Phase 7 — Handoff (generate, don't execute)
 

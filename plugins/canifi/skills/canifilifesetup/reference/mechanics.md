@@ -145,15 +145,21 @@ them pick a working alternative.
 Every generated skill's agent dispatch (research agents and, if separate,
 the synthesis/write step) pins an explicit model and effort — never omit
 `--model`/effort and let it silently inherit whatever the terminal last
-used. Only two choices exist, both Opus:
-
-| Choice | Model | Effort |
-| --- | --- | --- |
-| A | `opus` | `low` |
-| B | `opus` | `medium` |
-
-Ask the user which they want (Phase 4) — it's a direct choice, not
-inferred from anything else. The research agent count (how many parallel
+used, and never hardcode a specific tier into a generated file without
+asking. Ask the user directly (Phase 4) what's actually available in their
+environment (plain `sonnet`/`opus`/`haiku`/`fable` CLI shortcuts, Bedrock
+ARNs, or neither), then, for each role that exists in the generated system
+(the parallel research agents, and the synthesis/write step if it's a
+separate call), **give a concrete recommendation and ask them to confirm
+or override it** rather than presenting an open-ended choice with no
+guidance. A reasonable starting point to offer, stated as a recommendation
+and not a given: research/synthesis work benefits from a stronger tier
+since it involves real judgment about what's worth including and how to
+phrase it, so a higher effort level (or a stronger model, if their
+environment offers more than one) is usually worth it here specifically —
+unlike a pure-orchestration role, which this system doesn't really have.
+Record their actual choice; it's what gets pinned into the generated
+skill's agent-dispatch calls. The research agent count (how many parallel
 agents run per topic) is a fully separate, user-chosen number (Phase 2) —
 do not conflate agent count with model/effort tier.
 
@@ -291,13 +297,84 @@ mkdir -p "$MODELS"
 - Reads the OKF document's body (using the HTML dashboard as an additional
   source if one was also generated) to write the spoken script, synthesizes
   speech, commits the audio file alongside the source document, sets/
-  appends the OKF `resource` field, and regenerates any feed index the
-  user wants (e.g. RSS).
+  appends the OKF `resource` field, and **regenerates `feed.xml`** (below)
+  so every episode actually lands somewhere a podcast app can subscribe to
+  — audio alone is a file, not a podcast.
 - Before generating this skill, actually run the install/download steps
   above (or confirm they're already done — check for the venv and both
   model files) so the skill is real and working the moment it's
   generated, not "should work." If `brew`/`curl`/enough disk space isn't
   available, say so plainly and offer to skip audio.
+
+**A podcast is the feed, not just the file — generate `feed.xml`, don't
+stop at audio.** "It lands in your podcast app like anything else you
+subscribe to" (however the user described the experience they want) means
+a client actually subscribes by URL and polls it — that requires a real
+RSS feed, not a folder of MP3s the user has to find by hand.
+
+- **Format: plain RSS 2.0, no iTunes namespace needed.** A minimal
+  `<rss><channel>` with `<title>`, `<link>`, `<description>`, and one
+  `<item>` per episode (`<title>`, `<description>`, `<pubDate>` in RFC 822
+  format, `<guid>` stable and unique per episode — the episode's own
+  filename or OKF id is fine, not derived from anything that can drift on
+  a re-run) imports into most podcast apps by feed URL. Do not add
+  `<itunes:*>` tags or an iTunes-specific `<image>` block unless the user
+  explicitly asks for Apple Podcasts / directory-listing compatibility
+  later — that's a distinct, larger ask (episode artwork, category
+  taxonomy, owner contact) this generator does not take on by default.
+- **`<enclosure>` URLs must be absolute**, not relative paths — a feed
+  reader fetches the enclosure directly, it does not resolve it against
+  the feed's own location the way a browser resolves a relative link. This
+  means the generated feed writer needs to know the base URL the audio
+  files are actually reachable at (from the hosting choice below) and
+  build `url="<base>/<episode-file>"` `length="<bytes>"`
+  `type="audio/mpeg"` from that, never a bare filename or `./relative/path`.
+- **Regenerate the whole feed on every run**, prepending the newest
+  episode — don't hand-splice XML. Rebuilding from the full episode list
+  (walk the library for every audio file with a `resource` field, sorted
+  newest-first) is simpler and can't leave the feed in a half-edited state
+  if a run is interrupted.
+- **Where `feed.xml` lives is the same place the audio files are served
+  from** — see Hosting the feed, below. Write it to that same served
+  directory (or copy it there as the last step) so the URLs it references
+  and the files it's serving are never out of sync.
+
+#### Hosting the feed (and other prerequisites): Tailscale
+
+The audio files and `feed.xml` need to be reachable at a stable URL for a
+podcast app on the user's phone (or any device other than the machine
+doing the generating) to subscribe to. Ask the user directly where they
+want this served from — do not assume a specific hosting mechanism.
+
+**The recommended default, per the user's own preference: Tailscale.**
+It's free for personal use, requires no port-forwarding or public server,
+and gives every device on the user's tailnet a stable address that only
+their own devices can reach — reasonable for a personal podcast feed that
+shouldn't be public.
+
+- **Ask as a preflight step (Phase 0/4), not buried in the audio-format
+  interview specifically** — Tailscale is a broader prerequisite this
+  generator may need for more than just the podcast feed (any other
+  opt-in feature that serves something to another device benefits from
+  the same tailnet), so check for it once, up front, rather than
+  re-asking per feature.
+- If the user doesn't already have it: ask them to install Tailscale and
+  create a free account (this is an account-creation + device-auth flow
+  that needs the user's own action — do not attempt to automate signing
+  them up), then confirm `tailscale status` shows the machine connected
+  before treating this prerequisite as satisfied.
+- Once connected, serve the directory containing `feed.xml` and the audio
+  files over the tailnet (a simple local static-file server bound to the
+  machine's tailnet address/hostname is enough — match whatever the
+  user's environment makes easiest; ask if unclear rather than guessing a
+  specific server framework). Use the resulting stable tailnet URL as the
+  base URL for every `<enclosure>` built above.
+- If the user declines Tailscale and wants a different hosting mechanism
+  (their own web host, a different mesh/VPN, "local-only, I'll sync files
+  by hand"), honor that instead — adapt the base-URL source accordingly,
+  and if it's local-only, say plainly that no other device can subscribe
+  by URL until the files are reachable somehow, rather than generating a
+  feed with URLs that don't actually resolve anywhere.
 
 ### 3. PDF (opt-in)
 

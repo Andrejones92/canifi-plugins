@@ -83,6 +83,23 @@ incomplete and to try `/plugin install canifi` again. Never guess a path, and ne
 fall back to a hardcoded `~/.claude/...`, which is wrong whenever `CLAUDE_CONFIG_DIR`
 is set.
 
+### Broader prerequisite check: Tailscale
+
+Several optional features this skill can generate (the audio podcast's
+feed hosting today, and potentially other opt-in features later) need the
+generated output reachable from a device other than the machine doing the
+generating. Check for this ONCE here, up front, rather than re-asking
+separately inside each feature's own interview:
+
+- Check whether Tailscale is already installed and connected (`tailscale
+  status`). If yes, note it and move on — nothing to ask.
+- If not, and Phase 2 later turns out to need it (e.g. the user opts into
+  audio and wants their phone's podcast app to reach the feed), that's
+  where the ask actually happens: install Tailscale, create a free
+  account, and connect this machine, then confirm `tailscale status`
+  shows it connected before treating the prerequisite as satisfied. Don't
+  ask for this speculatively before anything needs it — if the user
+  declines every feature that would use it, this never comes up.
 
 ## Phase 1 — Open-ended discovery (always first, always free-form)
 
@@ -119,7 +136,15 @@ Cover, adapted to Phase 1:
   committing to it (Phase 4) — don't generate a format the machine can't
   produce. If audio is chosen, also ask which Kokoro voice they want
   (`reference/mechanics.md` has the voice list) — this is a real taste
-  question, never default to one voice silently.
+  question, never default to one voice silently. **If audio is chosen,
+  also ask where the feed should be reachable from** — a real podcast
+  needs a subscribable feed, not just an audio file (`reference/
+  mechanics.md`'s Audio podcast section has the full RSS/hosting spec).
+  Recommend Tailscale (free personal tier, no port-forwarding, reachable
+  from their phone's podcast app without exposing it publicly) unless they
+  already have a different hosting setup in mind or want local-only (in
+  which case say plainly that no other device can subscribe until the
+  files are reachable somehow).
 - **Visual identity — only relevant if HTML/slideshow was chosen.** Never
   suggest cloning a named existing product's look. Ask concretely: light
   or dark by default (or both), a rough personality (dense/technical vs.
@@ -219,17 +244,24 @@ Every answer here gets baked literally into generated files:
   check for it.** For each opt-in format chosen in Phase 2, do the real
   verification from `reference/mechanics.md` before Phase 5's confirmation
   gate: for audio, install the Kokoro venv + download both model files if
-  not already present (or confirm they're already there); for PDF, locate
-  a real Chrome/Chromium binary AND run a throwaway print against a
-  trivial HTML file to confirm it actually produces a PDF; for a `.pptx`
-  slideshow variant, `python3 -c "import pptx"` and install
-  `python-pptx` if missing. Report what's missing and offer to skip that
-  format or install the dependency now — don't carry a format into
-  Phase 5 on a hope that it'll work later.
-- **Model & effort.** Ask directly: Opus low effort, or Opus medium
-  effort (see `reference/mechanics.md` — these are the only two choices).
-  This is a single pick that applies to the generated skills' agent
-  dispatch; it is independent of the agent-count choice from Phase 2.
+  not already present (or confirm they're already there), AND — if the
+  user chose Tailscale or any other network-reachable hosting for the feed
+  — confirm that prerequisite is actually connected/working now, not just
+  installed; for PDF, locate a real Chrome/Chromium binary AND run a
+  throwaway print against a trivial HTML file to confirm it actually
+  produces a PDF; for a `.pptx` slideshow variant, `python3 -c "import
+  pptx"` and install `python-pptx` if missing. Report what's missing and
+  offer to skip that format or install the dependency now — don't carry a
+  format into Phase 5 on a hope that it'll work later.
+- **Model & effort — ask, then recommend, never hardcode.** Ask what
+  models are actually available in the user's environment (plain
+  `sonnet`/`opus`/`haiku`/`fable` CLI shortcuts, Bedrock ARNs, or neither),
+  then, for the research agents and the synthesis/write step separately if
+  it's a distinct call, give a concrete recommendation per
+  `reference/mechanics.md`'s Model & effort tier section and ask them to
+  confirm or override it. This is a per-role pick that applies to the
+  generated skills' agent dispatch; it is independent of the agent-count
+  choice from Phase 2.
 - **Skill naming.** Confirm the exact folder names for every skill about
   to be generated (post-collision-check from Phase 0).
 - **Director-integration specifics (only if Phase 3 opted in).** The
@@ -250,7 +282,11 @@ write, `mkdir`, or `git` command:
 3. Design choices restated: which optional formats exist, output-format
    selection mode (ask-every-time / always-all / named presets, with the
    preset table if any), visual identity direction (if any format needs
-   one), agent count, delivery channel, model/effort choice.
+   one), agent count, delivery channel, model/effort choice per role (with
+   the recommendation they confirmed or overrode), and — if audio was
+   chosen — the feed's hosting choice (Tailscale tailnet address or
+   whatever alternative they picked) with its prerequisite state
+   (connected now / still needs the user to install-and-sign-up).
 4. A one-line reminder that the OKF library is generated regardless of
    which optional formats were picked — it is not itself optional.
 5. **If director-integration was chosen**: the EXACT addition to
@@ -293,7 +329,10 @@ design choices from Phases 2-4 everywhere else. No placeholder strings.
    OKF document, in the user's own visual identity.
 6. **Audio export** (if chosen) — local Kokoro TTS pattern per
    `mechanics.md`, reading the OKF document (and HTML export if it also
-   exists), never raw research state.
+   exists), never raw research state; regenerates `feed.xml` (plain RSS
+   2.0, absolute `<enclosure>` URLs) as its last step per `mechanics.md`'s
+   Audio podcast section, served from wherever Phase 4 confirmed (Tailscale
+   tailnet address by default, or whatever alternative the user chose).
 7. **PDF export** (if chosen) — headless-browser print per `mechanics.md`
    — of the HTML export if one exists, otherwise of a minimal internal
    render of the OKF document's body.
