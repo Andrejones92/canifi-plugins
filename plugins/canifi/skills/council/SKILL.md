@@ -66,7 +66,7 @@ Every run gets its own identity so multiple councils never collide.
 - **WORKFLOW_ID** — `{slug}-{timestamp}`.
 - **WORKFLOW_DIR** — `~/Documents/council-docs/{WORKFLOW_ID}/` (user home Documents; project-agnostic — never write state into the current repo or under `.claude/`).
 
-(Shares the docs folder with every `/council` run — same dir layout, different workflow id per run. Runs from before this skill was renamed from "Brandon" wrote their checkpoint as `brandon-checkpoint.md` inside this same folder — Step 1 still finds those.)
+(Shares the docs folder with every `/council` run — same dir layout, different workflow id per run.)
 
 ---
 
@@ -239,8 +239,8 @@ offer returns on the next council run. Mention this **only** if they ask.
 
 **Always start here.**
 
-- If the user named a workflow dir, read `{WORKFLOW_DIR}/council-checkpoint.md` (or, if that's not there, the legacy `{WORKFLOW_DIR}/brandon-checkpoint.md` from a pre-rename run) directly.
-- Otherwise discover the most recent: `Glob ~/Documents/council-docs/*/council-checkpoint.md` AND `~/Documents/council-docs/*/brandon-checkpoint.md` (mtime-sorted across both, take newest).
+- If the user named a workflow dir, read `{WORKFLOW_DIR}/council-checkpoint.md` directly.
+- Otherwise discover the most recent: `Glob ~/Documents/council-docs/*/council-checkpoint.md` (mtime-sorted, take newest).
 - If none found → fresh run (Step 2).
 
 | Checkpoint `Current Phase` | Action |

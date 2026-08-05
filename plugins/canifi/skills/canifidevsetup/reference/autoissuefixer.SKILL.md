@@ -56,7 +56,7 @@ core pattern directly: a planner tier writes a **minimal-sufficiency
 contract** per unit of work (files allowlist, acceptance criteria,
 out-of-scope denylist, integration note), a worker tier builds against that
 contract, and a review pass is **observability only** (comments, never
-blocks). The differences from Brandon: no interactive discovery (this is
+blocks). The differences from Council: no interactive discovery (this is
 fully automatic, triggered by the Director finding open issues, not a user
 request), and the model tiers are (as of 2026-07-24): the Triage
 (planner) tier runs **Fable 5 at MEDIUM effort** — a weak contract
@@ -241,7 +241,7 @@ three. Once briefed:
 
 1. `mkdir -p ~/Documents/auto-issue-fixer-docs/{runId}/` — this is
    `args.docsDir`.
-2. Resolve model ids the same way Brandon does: default to the literal
+2. Resolve model ids the same way Council does: default to the literal
    `claude-fable-5` off Bedrock (this machine has no Bedrock — see the
    memory note on that — so the workflow script's built-in defaults already
    apply with zero extra plumbing; only pass `fableArn` explicitly if you
